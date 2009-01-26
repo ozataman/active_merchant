@@ -1,6 +1,8 @@
 module ActiveMerchant #:nodoc:
   module Billing #:nodoc:
     class FbWebGateway < Gateway
+      require 'hpricot'
+      
       TEST_URL = 'https://finanstest.fbwebpos.com/servlet/cc5ApiServer'
       LIVE_URL = 'https://www.fbwebpos.com/servlet/cc5ApiServer'
       
@@ -29,6 +31,12 @@ module ActiveMerchant #:nodoc:
         "sale" => "Auth",
         "capture" => "PostAuth",
         "credit" => "Credit"
+      }
+      
+      RESPONSE_CODES = {
+        "Approved" => :success,
+        "Declined" => :declined,
+        "Error" => :error
       }
       
       def initialize(options = {})
@@ -71,8 +79,28 @@ module ActiveMerchant #:nodoc:
       end
     
       def parse(body)
-        xml = REXML::Document.new(body)
-        # res = REXML::XPath.first(xml, "//CC5Response/Response")
+        xml = Hpricot::XML(body)
+        body = xml.at("CC5Response")
+        
+        success = RESPONSE_CODES[body.at("Response").inner_html] == :success
+        options = build_response_options(body)
+        params = build_response_params(body)
+        
+        reponse = Response.new(success, body.at("ErrMsg").inner_html, params, options)
+      end
+      
+      def build_response_options(body)
+        options = {}
+        options[:authorization] = body.at("AuthCode").inner_html unless body.at("AuthCode").blank?
+        options[:test] => ActiveMerchant::Billing::Base.mode == :test
+        options
+      end
+      
+      def build_response_params(body)
+        params = {}
+        params[:original_response] = body.to_html
+        params[:transaction_id] = body.at("TransId").inner_html unless body.at("TransId").blank?
+        params
       end
 
       # Initializes the xml request and passes it onto the caller
@@ -111,21 +139,6 @@ module ActiveMerchant #:nodoc:
         xml.tag! :Password, @options[:password]
         xml.tag! :ClientId, @options[:merchant_id]
         xml.tag! :Mode, "P"
-      end
-      
-      def add_customer_data(xml, options)
-      end
-
-      def add_address(xml, creditcard, options)      
-      end
-
-      def add_invoice(xml, options)
-      end
-      
-      def message_from(response)
-      end
-      
-      def post_data(action, parameters = {})
       end
       
     end
