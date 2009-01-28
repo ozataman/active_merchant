@@ -78,31 +78,6 @@ module ActiveMerchant #:nodoc:
         response = parse(ssl_post(test? ? TEST_URL : LIVE_URL, post))
       end
     
-      def parse(body)
-        xml = Hpricot::XML(body)
-        body = xml.at("CC5Response")
-        
-        success = RESPONSE_CODES[body.at("Response").inner_html] == :success
-        options = build_response_options(body)
-        params = build_response_params(body)
-        
-        reponse = Response.new(success, body.at("ErrMsg").inner_html, params, options)
-      end
-      
-      def build_response_options(body)
-        options = {}
-        options[:authorization] = body.at("AuthCode").inner_html unless body.at("AuthCode").blank?
-        options[:test] => ActiveMerchant::Billing::Base.mode == :test
-        options
-      end
-      
-      def build_response_params(body)
-        params = {}
-        params[:original_response] = body.to_html
-        params[:transaction_id] = body.at("TransId").inner_html unless body.at("TransId").blank?
-        params
-      end
-
       # Initializes the xml request and passes it onto the caller
       # The entire request needs to be wrapped in a master tag
       # This method takes care of that
@@ -139,6 +114,31 @@ module ActiveMerchant #:nodoc:
         xml.tag! :Password, @options[:password]
         xml.tag! :ClientId, @options[:merchant_id]
         xml.tag! :Mode, "P"
+      end
+      
+      def parse(body)
+        xml = Hpricot::XML(body)
+        body = xml.at("CC5Response")
+        
+        success = RESPONSE_CODES[body.at("Response").inner_html] == :success
+        options = build_response_options(body)
+        params = build_response_params(body)
+        
+        reponse = Response.new(success, body.at("ErrMsg").inner_html, params, options)
+      end
+      
+      def build_response_options(body)
+        options = {}
+        options[:authorization] = body.at("AuthCode").inner_html unless body.at("AuthCode").blank?
+        options[:test] = ActiveMerchant::Billing::Base.mode == :test
+        options
+      end
+      
+      def build_response_params(body)
+        params = {}
+        params[:original_response] = body.to_html
+        params[:transaction_id] = body.at("TransId").inner_html unless body.at("TransId").blank?
+        params
       end
       
     end
